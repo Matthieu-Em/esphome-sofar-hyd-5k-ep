@@ -129,6 +129,9 @@ globals:
     type: int32_t
     restore_value: no
     initial_value: '0'
+  - id: previous_battery_mode
+    type: std::string
+    initial_value: ""
 
 number:
   - platform: template
@@ -298,6 +301,10 @@ script:
             gdes = -5000;
             blo = -5000;
             bup = -5000;
+          } else if (submode == "Passive (Auto)") {       // ✅ new branch
+            gdes = 0;
+            blo = -5000;
+            bup = 5000;            
           } else {
             ESP_LOGI("passive_mode", "Passive Auto – skipping manual write.");
             return;
@@ -327,6 +334,10 @@ interval:
     id: passive_control_loop
     then:
       - lambda: |-
+          if ((int)id(current_mode).state != 3) {
+            // Not in Passive → exit early
+            return;
+          }
           auto now = id(esptime).now();
           int now_minutes = now.hour * 60 + now.minute;
           int start_minutes = (int)id(scheduled_charge_start_hour).state * 60 + (int)id(scheduled_charge_start_minute).state;
@@ -406,7 +417,7 @@ interval:
             } else {
               int32_t charge_power = (int32_t)id(passive_charge_power).state;
               blo = -5000;
-              bup = charge_power;
+              bup = 5000;
 
               ESP_LOGI("passive_mode", "PV %.1fW < 5200 or SOC %.1f%% = 100%% → Floating battery in Passive", pv, soc);
             }
